@@ -1,5 +1,5 @@
 class Car{
-    constructor(x,y,width,height)
+    constructor(x,y,width,height,controlType,maxSpeed=3)
     {
         this.x = x;
         this.y = y;
@@ -7,17 +7,64 @@ class Car{
         this.height = height;
         this.speed = 0;
         this.acceleration = 0.2;
-        this.maxSpeed = 3;
+        this.maxSpeed = maxSpeed;
         this.friction = 0.05;
         this.angle = 0;
+        this.damaged = false;
 
+        if(controlType != "DUMMY")
+        {
         this.sensor = new Sensor(this);
-        this.controls=new Controls();
+        }
+        this.controls=new Controls(controlType);
     }
-    update(roadBorders)
+    update(roadBorders,traffic)
     {
+        if(!this.damaged)
+        {
         this.#move();
-        this.sensor.update(roadBorders);
+        this.polygon = this.#createPolygon();
+        this.damaged = this.#assessDamage(roadBorders,traffic);
+        }
+        if(this.sensor)
+        {
+        this.sensor.update(roadBorders,traffic);
+        }
+    }
+    #assessDamage(roadBorders,traffic)
+    {
+        for(let i = 0; i < roadBorders.length; i++)
+        {
+            if(polysIntersect(this.polygon,roadBorders[i]))return true;
+        }
+        for(let i = 0; i < traffic.length; i++)
+        {
+            if(polysIntersect(this.polygon,traffic[i].polygon))return true;
+        }
+        return false;
+    }
+    #createPolygon()
+    {
+        const points = [];
+        const rad = Math.hypot(this.width,this.height)/2;// distance form the center of the car to the corner
+        const alpha = Math.atan2(this.width,this.height);//gives the angle for the point formation in the array
+        points.push({
+            x:this.x-Math.sin(this.angle-alpha)*rad,
+            y:this.y-Math.cos(this.angle-alpha)*rad
+        });
+        points.push({
+            x:this.x-Math.sin(this.angle+alpha)*rad,
+            y:this.y-Math.cos(this.angle+alpha)*rad
+        })
+        points.push({
+            x:this.x-Math.sin(Math.PI+this.angle-alpha)*rad,
+            y:this.y-Math.cos(Math.PI+this.angle-alpha)*rad
+        });
+        points.push({
+            x:this.x-Math.sin(Math.PI+this.angle+alpha)*rad,
+            y:this.y-Math.cos(Math.PI+this.angle+alpha)*rad
+        });
+        return points;
     }
     #move()
     {
@@ -65,22 +112,26 @@ class Car{
         this.x-=Math.sin(this.angle)*this.speed;
         this.y-=Math.cos(this.angle)*this.speed;
     }
-    draw(ctx)
+    draw(ct,color)
     {
-        ctx.save();
-        ctx.translate(this.x,this.y);
-        ctx.rotate(-this.angle);
-
+        if(this.damaged)
+        {
+            ctx.fillStyle="gray";
+        }else 
+        {
+            ctx.fillStyle=color;
+        }
         ctx.beginPath();
-        ctx.rect(
-            -this.width/2,
-            -this.height/2,
-            this.width,
-            this.height,
-        );
+        ctx.moveTo(this.polygon[0].x,this.polygon[0].y);
+        for(let i = 1; i < this.polygon.length; i++)
+        {
+            ctx.lineTo(this.polygon[i].x, this.polygon[i].y);
+        }
         ctx.fill();
-        ctx.restore();
+        if(this.sensor)
+        {
+            this.sensor.draw(ctx);
+        }
 
-        this.sensor.draw(ctx);
     }
 }
