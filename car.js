@@ -12,9 +12,14 @@ class Car{
         this.angle = 0;
         this.damaged = false;
 
+        this.useBrain = controlType == "AI";
+
         if(controlType != "DUMMY")
         {
         this.sensor = new Sensor(this);
+        this.brain = new NeuralNetwork(
+            [this.sensor.rayCount,6,4]
+        );
         }
         this.controls=new Controls(controlType);
     }
@@ -29,6 +34,17 @@ class Car{
         if(this.sensor)
         {
         this.sensor.update(roadBorders,traffic);
+        const offsets = this.sensor.readings.map(
+            s=>s==null?0:1-s.offset// keep this in mind when the car is close this will give higer offsets in and when the car is away the actual offset will be high and then 1-offset will give less value 
+        );// above line thats how sensors work in real life 
+        const outputs = NeuralNetwork.feedForward(offsets, this.brain);
+        if(this.useBrain)
+        {
+            this.controls.forward = outputs[0];
+            this.controls.left = outputs[1];
+            this.controls.right = outputs[2];
+            this.controls.reverse = outputs[3];
+        }
         }
     }
     #assessDamage(roadBorders,traffic)
@@ -112,25 +128,25 @@ class Car{
         this.x-=Math.sin(this.angle)*this.speed;
         this.y-=Math.cos(this.angle)*this.speed;
     }
-    draw(ct,color)
+    draw(carCtx,color)
     {
         if(this.damaged)
         {
-            ctx.fillStyle="gray";
+            carCtx.fillStyle="gray";
         }else 
         {
-            ctx.fillStyle=color;
+            carCtx.fillStyle=color;
         }
-        ctx.beginPath();
-        ctx.moveTo(this.polygon[0].x,this.polygon[0].y);
+        carCtx.beginPath();
+        carCtx.moveTo(this.polygon[0].x,this.polygon[0].y);
         for(let i = 1; i < this.polygon.length; i++)
         {
-            ctx.lineTo(this.polygon[i].x, this.polygon[i].y);
+            carCtx.lineTo(this.polygon[i].x, this.polygon[i].y);
         }
-        ctx.fill();
+        carCtx.fill();
         if(this.sensor)
         {
-            this.sensor.draw(ctx);
+            this.sensor.draw(carCtx);
         }
 
     }
